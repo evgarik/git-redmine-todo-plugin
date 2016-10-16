@@ -1,0 +1,29 @@
+#!/bin/sh
+
+MAGIC_WORDS=(TODO FIXME XXX)
+
+# $1 - found line with a word
+# $2 - file name
+# $3 - found word
+function create_redmine_task() {
+	redmine_params=`echo $1 | sed -r 's/^\/\/TODO\((.+)\)-(.+)/\1 \2/'` # "author message"
+	echo $redmine_params
+}
+
+if git rev-parse --verify HEAD >/dev/null 2>&1
+then
+	against=HEAD
+else
+	# Initial commit: diff against an empty tree object
+	against=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+fi  
+
+for FILE in `git diff-index --name-status $against -- | cut -c3-` ; do
+	for WORD in ${MAGIC_WORDS[*]}; do
+		# Create a redmine task for each occurence of $WORD in $FILE
+		for LINE in `cat $FILE | grep $WORD | sed 's/ //g'`; do
+			create_redmine_task $LINE $FILE $WORD
+		done
+	done
+done
+exit 1
