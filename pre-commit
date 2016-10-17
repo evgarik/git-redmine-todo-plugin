@@ -1,13 +1,24 @@
 #!/bin/sh
 
-MAGIC_WORDS=(TODO FIXME XXX)
+# Example of valid line with TODO item: 
+# //TODO REDMINE (mszarlinski) - Refactoring needed here!
+
+KEYWORDS=(TODO FIXME XXX)
+PLUGIN_ACTIVATOR_WORD=REDMINE
+
+REDMINE_URL=*****
+REDMINE_LOGIN=*****
+REDMINE_PSW=*****
+PROJECT_ID=*****
 
 # $1 - found line with a word
 # $2 - file name
 # $3 - found word
 function create_redmine_task() {
-	redmine_params=`echo $1 | sed -r 's/^\/\/TODO\((.+)\)-(.+)/\1 \2/'` # "author message"
+	redmine_params=`echo $1 | sed -r 's/^.*(TODO|FIXME|XXX)REDMINE\((.+)\)-(.+)/\1 \2 \3/'` # "keyword author message"
 	echo $redmine_params
+	echo '<issue><project_id>$PROJECT_ID</project_id><subject>$redmine_params[0]: $redmine_params[2]</subject><description>File: $2 Assignee: $redmine_params[1]</description><category_id>1</category_id></issue>' | \
+	curl -H "Content-Type: application/xml" -X POST -u $REDMINE_LOGIN:$REDMINE_PSW $REDMINE_URL/issues.xml
 }
 
 if git rev-parse --verify HEAD >/dev/null 2>&1
@@ -19,11 +30,11 @@ else
 fi  
 
 for FILE in `git diff-index --name-status $against -- | cut -c3-` ; do
-	for WORD in ${MAGIC_WORDS[*]}; do
+	for WORD in ${KEYWORDS[*]}; do
 		# Create a redmine task for each occurence of $WORD in $FILE
-		for LINE in `cat $FILE | grep $WORD | sed 's/ //g'`; do
+		for LINE in `cat $FILE | grep $WORD.*$PLUGIN_ACTIVATOR_WORD | sed 's/ //g'`; do
 			create_redmine_task $LINE $FILE $WORD
 		done
 	done
 done
-exit 1
+exit
